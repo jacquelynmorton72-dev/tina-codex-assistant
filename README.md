@@ -32,31 +32,29 @@ Tina-codex 助手解决了这些问题：
 
 ### 最终用户
 
-1. 获取 `Tina-codex助手.exe`
+#### 轻量版（66 MB）- 快速注入工具
+
+**适用场景**：已安装 Codex，需要注入中文插件市场
+
+1. 下载 `Tina-codex助手.exe`（轻量版）
 2. 双击运行
-3. 选择：
-   - **快速注入/修复** - 已安装 Codex，只需注入插件
-   - **一键完整安装** - 新电脑，全自动安装 Codex + 插件
+3. 选择 **快速注入/修复**
+4. 完成！✅ 无需 VPN
+
+#### 完全离线版（400-600 MB）- 完整安装工具
+
+**适用场景**：新电脑，需要从零安装 Codex
+
+1. 下载 `Tina-codex助手-完全离线版.exe`
+2. 双击运行
+3. 选择 **一键完整安装**
+4. 完成！✅ 完全离线，无需 VPN
 
 详细说明请查看 [WINDOWS_USAGE.md](WINDOWS_USAGE.md)
 
 ### 打包人员
 
-#### 完全离线版（推荐）
-
-在有 VPN 的 Windows 环境下：
-
-```powershell
-# 1. 下载离线资源
-powershell -ExecutionPolicy Bypass -File scripts\download-offline-resources.ps1
-
-# 2. 打包
-powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
-```
-
-生成的 exe 包含所有安装包，支持无 VPN 环境。
-
-#### 轻量版
+#### 方式 A：打包轻量版（快速，推荐给已安装 Codex 的用户）
 
 直接打包（跳过下载离线资源）：
 
@@ -64,7 +62,29 @@ powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 ```
 
-生成的 exe 体积小，但需要网络下载 Codex。
+生成的 exe 体积小（66 MB），但需要网络下载 Codex。
+
+#### 方式 B：打包完全离线版（推荐给新用户）⭐
+
+**需要在有 VPN 的 Windows 环境下：**
+
+```powershell
+# 1. 下载完全离线资源（需要 VPN）
+powershell -ExecutionPolicy Bypass -File scripts\download-offline-resources-enhanced.ps1
+
+# 这会下载：
+# - Codex GUI 安装包 (~300 MB)
+# - Codex CLI 安装包 (~80 MB)
+
+# 2. 打包
+powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
+```
+
+生成的 exe 包含所有安装包（400-600 MB），支持无 VPN 环境。
+
+**或者使用 GitHub Actions：**
+
+见下方 [使用 GitHub Actions](#使用-github-actions-自动打包) 部分。
 
 ## 项目结构
 
