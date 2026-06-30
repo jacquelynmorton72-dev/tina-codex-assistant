@@ -6,6 +6,104 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def codex_gui_install_cdn_script(cdn_urls: list[str]) -> str:
+    """生成使用 CDN 下载并安装 Codex GUI 的脚本"""
+    urls_ps = ", ".join([f"'{url}'" for url in cdn_urls])
+
+    return f"""
+$ErrorActionPreference = 'Stop'
+Write-Host "使用 Hi-Codex CDN 下载 Codex GUI 安装包"
+
+$cdnUrls = @({urls_ps})
+$pkg = Join-Path $env:TEMP 'codex-gui.msixbundle'
+$downloaded = $false
+
+foreach ($url in $cdnUrls) {{
+    try {{
+        Write-Host "尝试从 CDN 下载：$url"
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $pkg -TimeoutSec 300
+
+        if (Test-Path $pkg) {{
+            $size = [math]::Round((Get-Item $pkg).Length / 1MB, 2)
+            Write-Host "✓ 下载完成 ($size MB)"
+            $downloaded = $true
+            break
+        }}
+    }} catch {{
+        Write-Host "✗ 下载失败：$_" -ForegroundColor Yellow
+        Write-Host "尝试下一个 CDN..." -ForegroundColor Yellow
+    }}
+}}
+
+if (-not $downloaded) {{
+    throw "所有 CDN 下载均失败"
+}}
+
+Write-Host "正在安装 Codex GUI..."
+Add-AppxPackage -Path $pkg -ForceApplicationShutdown
+Write-Host "✓ Codex GUI 安装完成"
+
+# 清理临时文件
+Remove-Item $pkg -Force -ErrorAction SilentlyContinue
+"""
+
+
+def codex_cli_install_cdn_script(install_script_url: str, tarball_url: str) -> str:
+    """生成使用 CDN 下载并在 WSL 中安装 Codex CLI 的脚本"""
+    return f"""
+$ErrorActionPreference = 'Stop'
+Write-Host "使用 Hi-Codex CDN 安装 Codex CLI"
+
+# 检查 WSL
+Write-Host "检查 WSL 状态..."
+wsl.exe --status | Out-Null
+if ($LASTEXITCODE -ne 0) {{
+    throw 'WSL 未安装或未启动。请先运行: wsl --install'
+}}
+
+$wslTmp = '/tmp/tina-codex-cdn'
+wsl.exe sh -c "mkdir -p $wslTmp"
+
+try {{
+    # 下载安装脚本
+    Write-Host "下载安装脚本..."
+    $installSh = Join-Path $env:TEMP 'codex-install.sh'
+    Invoke-WebRequest -UseBasicParsing -Uri '{install_script_url}' -OutFile $installSh -TimeoutSec 60
+
+    # 下载 tarball
+    Write-Host "下载 Codex CLI 安装包..."
+    $tarball = Join-Path $env:TEMP 'codex-linux-x64.tar.gz'
+    Invoke-WebRequest -UseBasicParsing -Uri '{tarball_url}' -OutFile $tarball -TimeoutSec 300
+
+    $size = [math]::Round((Get-Item $tarball).Length / 1MB, 2)
+    Write-Host "✓ 下载完成 ($size MB)"
+
+    # 复制到 WSL
+    Write-Host "复制到 WSL..."
+    $wslInstallSh = wsl.exe wslpath -a $installSh
+    $wslTarball = wsl.exe wslpath -a $tarball
+
+    wsl.exe cp $wslInstallSh "$wslTmp/install.sh"
+    wsl.exe cp $wslTarball "$wslTmp/codex-linux-x64.tar.gz"
+
+    # 修改脚本使用本地 tarball
+    Write-Host "配置安装脚本..."
+    wsl.exe sh -c "cd $wslTmp && sed -i 's|curl.*codex.*tar.gz.*|cp $wslTmp/codex-linux-x64.tar.gz codex-linux-x64.tar.gz|g' install.sh"
+
+    # 执行安装
+    Write-Host "执行安装..."
+    wsl.exe sh -lc "cd $wslTmp && sh install.sh"
+
+    Write-Host "✓ Codex CLI 安装完成"
+}} finally {{
+    # 清理
+    wsl.exe rm -rf $wslTmp
+    Remove-Item $installSh -Force -ErrorAction SilentlyContinue
+    Remove-Item $tarball -Force -ErrorAction SilentlyContinue
+}}
+"""
+
+
 def codex_gui_install_offline_script(pkg_path: Path) -> str:
     """生成使用本地安装包安装 Codex GUI 的脚本"""
     pkg_win_path = pkg_path.as_posix().replace("/", "\\")
@@ -165,6 +263,8 @@ def build_full_install_plan(
     git_found: bool,
     offline_gui_pkg: Path | None = None,
     offline_cli_dir: Path | None = None,
+    cdn_gui_urls: list[str] | None = None,
+    cdn_cli_urls: dict[str, str] | None = None,
 ) -> InstallPlan:
     """构建完整安装计划
 
@@ -174,16 +274,19 @@ def build_full_install_plan(
         git_found: 是否检测到 Git
         offline_gui_pkg: 离线 GUI 安装包路径
         offline_cli_dir: 离线 CLI 资源目录路径
+        cdn_gui_urls: Hi-Codex CDN GUI 下载地址列表
+        cdn_cli_urls: Hi-Codex CDN CLI 下载地址字典
 
     Returns:
         InstallPlan: 安装计划
     """
     actions: list[InstallAction] = []
 
-    # Codex GUI
+    # Codex GUI - 优先级：离线 > CDN > 在线
     if codex_gui_found:
         actions.append(InstallAction("check_codex_gui", "Codex GUI 已检测到", []))
     else:
+        # 优先使用离线安装包
         if offline_gui_pkg and offline_gui_pkg.exists():
             actions.append(
                 InstallAction(
@@ -192,6 +295,16 @@ def build_full_install_plan(
                     [codex_gui_install_offline_script(offline_gui_pkg)],
                 )
             )
+        # 其次使用 Hi-Codex CDN
+        elif cdn_gui_urls and len(cdn_gui_urls) > 0:
+            actions.append(
+                InstallAction(
+                    "install_codex_gui_cdn",
+                    "使用 Hi-Codex CDN 安装 Codex GUI（国内高速，无需 VPN）",
+                    [codex_gui_install_cdn_script(cdn_gui_urls)],
+                )
+            )
+        # 最后回退到在线下载
         else:
             actions.append(
                 InstallAction(
@@ -213,10 +326,11 @@ def build_full_install_plan(
             )
         )
 
-    # Codex CLI
+    # Codex CLI - 优先级：离线 > CDN > 在线
     if codex_cli_found:
         actions.append(InstallAction("check_codex_cli", "Codex CLI 已检测到", []))
     else:
+        # 优先使用离线资源
         if offline_cli_dir and offline_cli_dir.exists():
             actions.append(
                 InstallAction(
@@ -225,10 +339,24 @@ def build_full_install_plan(
                     [codex_cli_install_offline_script(offline_cli_dir)],
                 )
             )
+        # 其次使用 Hi-Codex CDN
+        elif cdn_cli_urls and "install_script" in cdn_cli_urls and "tarball" in cdn_cli_urls:
+            actions.append(
+                InstallAction(
+                    "install_codex_cli_cdn",
+                    "使用 Hi-Codex CDN 安装 Codex CLI（国内高速，无需 VPN）",
+                    [codex_cli_install_cdn_script(cdn_cli_urls["install_script"], cdn_cli_urls["tarball"])],
+                )
+            )
+        # 最后回退到在线下载
         else:
             actions.append(
                 InstallAction(
                     "install_codex_cli",
+                    "通过官方 WSL 安装脚本安装 Codex CLI（需要网络）",
+                    [CODEX_WSL_INSTALL_SCRIPT],
+                )
+            )
                     "通过官方 WSL 安装脚本安装 Codex CLI（需要网络）",
                     [CODEX_WSL_INSTALL_SCRIPT],
                 )

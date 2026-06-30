@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from .cdn_config import get_codex_cli_cdn, get_codex_gui_cdn, has_cdn_configured
 from .core import resolve_codex_paths
 from .injector import inject_plugins
 from .offline_resources import get_offline_codex_cli_dir, get_offline_codex_gui, has_offline_resources
@@ -54,12 +55,19 @@ class TinaCodexService:
         offline_cli_dir = get_offline_codex_cli_dir()
         offline_status = has_offline_resources()
 
+        # 检测 Hi-Codex CDN 配置
+        cdn_gui_urls = get_codex_gui_cdn()
+        cdn_cli_urls = get_codex_cli_cdn()
+        cdn_configured = has_cdn_configured()
+
         plan = build_full_install_plan(
             codex_cli_found=self._detect_codex_cli(),
             codex_gui_found=self._detect_codex_gui(),
             git_found=self._detect_git(),
             offline_gui_pkg=offline_gui,
             offline_cli_dir=offline_cli_dir,
+            cdn_gui_urls=cdn_gui_urls,
+            cdn_cli_urls=cdn_cli_urls,
         )
         command_results: list[dict] = []
         if execute_commands:
@@ -73,6 +81,11 @@ class TinaCodexService:
         result = self._result("full_install", plan, injection)
         result["command_results"] = command_results
         result["offline_resources"] = offline_status
+        result["cdn_configured"] = cdn_configured
+        result["cdn_status"] = {
+            "gui_urls": cdn_gui_urls,
+            "cli_configured": len(cdn_cli_urls) > 0,
+        }
         return result
 
     def _detect_codex_gui(self) -> bool:
