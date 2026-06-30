@@ -10,20 +10,6 @@ def app_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def resource_path(relative_path: str) -> Path | None:
-    """获取资源文件路径
-
-    Args:
-        relative_path: 相对于 resources/ 的路径，如 "plugin.zip" 或 "codex-cli/install.sh"
-
-    Returns:
-        Path 或 None: 资源路径，如果不存在返回 None
-    """
-    base = app_root() / "resources"
-    path = base / relative_path
-    return path if path.exists() else None
-
-
 def bundled_plugin_zip() -> Path:
     return app_root() / "resources" / "plugin.zip"
 

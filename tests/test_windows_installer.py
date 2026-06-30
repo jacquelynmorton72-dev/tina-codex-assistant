@@ -40,7 +40,9 @@ def test_full_install_plan_uses_store_codex_and_npmmirror_git():
     assert any("openai.codex" in command for command in action_map["install_codex_gui"].commands)
     assert any("store.rg-adguard.net" in command for command in action_map["install_codex_gui"].commands)
     assert any("registry.npmmirror.com/-/binary/git-for-windows" in command for command in action_map["install_git"].commands)
-    assert any("chatgpt.com/codex/install.sh" in command for command in action_map["install_codex_cli"].commands)
+    assert any("@openai/codex" in command for command in action_map["install_codex_cli"].commands)
+    assert any("registry.npmmirror.com" in command for command in action_map["install_codex_cli"].commands)
+    assert not any("chatgpt.com" in command for command in action_map["install_codex_cli"].commands)
 
 
 def test_full_install_plan_skips_installed_dependencies():
