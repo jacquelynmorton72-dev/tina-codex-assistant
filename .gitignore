@@ -1,0 +1,13 @@
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+.DS_Store
+resources/*.bak
+dist/
+build/
+*.spec.bak
+
+# 离线资源（文件较大，不提交到 git）
+resources/codex-gui.*
+resources/codex-cli/

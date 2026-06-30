@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tina-codex助手</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+        color: #17202a;
+        background: #f7f8fa;
+      }
+      body {
+        margin: 0;
+      }
+      .shell {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 28px;
+      }
+      header {
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        font-weight: 700;
+      }
+      p {
+        margin: 0;
+        color: #53606f;
+        line-height: 1.6;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid #d9e0e8;
+        border-radius: 8px;
+        padding: 18px;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      button {
+        margin-top: 18px;
+        width: 100%;
+        height: 42px;
+        border: 0;
+        border-radius: 6px;
+        background: #1769aa;
+        color: white;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #2f3a45;
+      }
+      button:disabled {
+        background: #9aa7b5;
+        cursor: wait;
+      }
+      pre {
+        margin-top: 18px;
+        min-height: 220px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #101820;
+        color: #eef6ff;
+        padding: 16px;
+        border-radius: 8px;
+        overflow: auto;
+      }
+      .notice {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border: 1px solid #f0d58c;
+        border-radius: 8px;
+        background: #fff8e1;
+        color: #594315;
+      }
+      @media (max-width: 720px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .shell {
+          padding: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <h1>Tina-codex助手</h1>
+        <p>安装、修复并注入中文化 Codex 插件市场。不会写入模型服务、API Key 或默认中转配置。</p>
+      </header>
+
+      <section class="grid">
+        <div class="panel">
+          <h2>快速注入/修复</h2>
+          <p>适用于已经安装 Codex 的电脑。会备份现有配置，注入 Tina-codex 中文插件市场和推荐基础插件组。</p>
+          <button onclick="runQuick()">开始注入</button>
+        </div>
+        <div class="panel">
+          <h2>一键完整安装</h2>
+          <p>检查 Codex GUI、CLI、Git/MinGit，然后注入中文插件市场。软件下载尽量使用系统渠道和国内镜像。</p>
+          <button class="secondary" onclick="runFull()">开始安装</button>
+        </div>
+      </section>
+
+      <div class="notice">模型服务需要用户在 Codex 设置中自行配置：OpenAI 登录、API Key、自定义 OpenAI-compatible provider 或本地模型。</div>
+      <pre id="output">等待操作...</pre>
+    </main>
+
+    <script>
+      const output = document.getElementById("output");
+      const buttons = Array.from(document.querySelectorAll("button"));
+
+      function setBusy(busy) {
+        buttons.forEach((button) => (button.disabled = busy));
+      }
+
+      function render(raw) {
+        const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+        output.textContent = JSON.stringify(data, null, 2);
+      }
+
+      async function runQuick() {
+        setBusy(true);
+        output.textContent = "正在注入...";
+        try {
+          render(await window.pywebview.api.quick_repair());
+        } catch (error) {
+          output.textContent = String(error);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function runFull() {
+        setBusy(true);
+        output.textContent = "正在安装...";
+        try {
+          render(await window.pywebview.api.full_install());
+        } catch (error) {
+          output.textContent = String(error);
+        } finally {
+          setBusy(false);
+        }
+      }
+    </script>
+  </body>
+</html>
+

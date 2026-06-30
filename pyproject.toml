@@ -1,0 +1,14 @@
+[project]
+name = "tina-codex-assistant"
+version = "0.1.0"
+description = "Tina-codex assistant for Windows Codex plugin localization and setup"
+requires-python = ">=3.11"
+dependencies = ["pywebview>=5.0"]
+
+[project.scripts]
+tina-codex = "tina_codex_assistant.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
